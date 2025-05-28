@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ethiopian OTC Drug Guide</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .drug-card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .drug-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        /* Modal styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.6); /* Black w/ opacity */
+            justify-content: center; /* Center horizontally */
+            align-items: center; /* Center vertically */
+            padding: 1rem; /* Padding for small screens */
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto; /* Centered */
+            padding: 25px;
+            border: 1px solid #888;
+            width: 90%; /* Could be more or less, depending on screen size */
+            max-width: 600px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            position: relative; /* Needed for absolute positioning of close button */
+        }
+        .close-button {
+            color: #aaa;
+            position: absolute;
+            top: 15px;
+            right: 25px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+        }
+        /* Loading Spinner */
+        .loader {
+            border: 4px solid #f3f3f3; /* Light grey */
+            border-top: 4px solid #3498db; /* Blue */
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 10px auto;
+            display: none; /* Hidden by default */
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-green-100 via-yellow-50 to-blue-100 min-h-screen">
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <img src="https://placehold.co/100x100/34D399/FFFFFF?text=EFDA+Logo" alt="EFDA Logo Placeholder" class="mx-auto mb-4 h-20 w-20 rounded-full shadow-md">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Ethiopian OTC Drug Guide</h1>
+            <p class="text-gray-600 mt-2 text-sm md:text-base">
+                Find information about Over-The-Counter medicines available in Ethiopia and their uses.
+                This guide is based on the EFDA OTC Medicines List, Third Edition, July 2022.
+            </p>
+            <p class="text-xs text-red-500 mt-1">
+                <strong>Disclaimer:</strong> This information is for general guidance only. Always consult a healthcare professional or pharmacist for medical advice. AI-generated suggestions are not a substitute for professional medical advice.
+            </p>
+        </header>
+
+        <div class="mb-8 max-w-2xl mx-auto">
+            <input type="text" id="searchInput"
+                   class="w-full p-4 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                   placeholder="Search for a medicine..."
+                   onkeyup="filterDrugs()">
+        </div>
+
+        <div id="drugListings" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Drug cards will be loaded here by JavaScript -->
+        </div>
+
+        <div id="loader" class="loader mt-10"></div>
+    </div>
+
+    <!-- The Modal Structure -->
+    <div id="drugModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeModal()">×</span>
+            <h2 id="modalDrugName" class="text-2xl font-bold mb-3 text-gray-800"></h2>
+            <div class="mb-4">
+                <h3 class="text-lg font-semibold text-gray-700">Primary Use:</h3>
+                <p id="modalPrimaryUse" class="text-gray-600"></p>
+            </div>
+            <div id="modalPrecautionsSection" class="mb-4">
+                <h3 class="text-lg font-semibold text-red-700">Important Considerations:</h3>
+                <ul id="modalPrecautionsList" class="list-disc list-inside text-gray-600">
+                    <!-- Precautions will be loaded here -->
+                </ul>
+                <p id="noPrecautionsMessage" class="text-gray-600 italic text-sm mt-2" style="display: none;">No specific precautions listed for self-medication in the guide. Always consult a professional.</p>
+            </div>
+            <p class="text-xs text-red-500 mt-4">
+                <strong>Disclaimer:</strong> This information is for general guidance only. Always consult a healthcare professional or pharmacist for medical advice.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Paste the extracted JSON data here
+        const allDrugData = [
+            {
+                "name": "Aluminum Hydroxide + Magnesium Hydroxide",
+                "primary_use": "Used to treat heartburn and indigestion by neutralizing stomach acid.",
+                "precautions": [
+                    "Ask your doctor or pharmacist if this medicine is safe to use if you have: Cardiac disease, Kidney disease; or If you are on a low-magnesium diet.",
+                    "Aluminum-containing antacids should be used with caution in infants and young children with renal failure."
+                ]
+            },
+            {
+                "name": "Aluminum Hydroxide",
+                "primary_use": "Used to relieve heartburn, indigestion, and sour stomach by neutralizing stomach acid.",
+                "precautions": [
+                    "Ask your doctor or pharmacist if it is safe for you to take this medicine if you have: kidney disease, a history of kidney stones; severe constipation; if you are dehydrated; or If you drink alcohol frequently.",
+                    "Avoid taking other medications within 2 hours before or 2 hours after you take aluminum hydroxide."
+                ]
+            },
+            {
+                "name": "Aluminium Hydroxide + Magnesium Hydroxide + Simethicone",
+                "primary_use": "Used to relieve symptoms of heartburn, indigestion, and gas by neutralizing stomach acid and breaking down gas bubbles.",
+                "precautions": [
+                    "Ask your doctor or pharmacist if this medicine is safe to use if you have: Kidney disease; or If you are on a low-magnesium diet."
+                ]
+            },
+            {
+                "name": "Aluminum Hydroxide + Magnesium Trisilicate",
+                "primary_use": "Used to relieve heartburn and indigestion by neutralizing stomach acid.",
+                "precautions": [
+                    "Ask your doctor or pharmacist if this medicine is safe to use if you have: Kidney disease; or If you are on a low-magnesium diet.",
+                    "Aluminum-containing antacids should be used with caution in infants and young children with renal failure."
+                ]
+            },
+            {
+                "name": "Calcium carbonate",
+                "primary_use": "Used to relieve heartburn and indigestion by neutralizing stomach acid.",
+                "precautions": [
+                    "This medicine should not be given to children under 12 and individuals with renal problems.",
+                    "It shouldn't be used for more than 2 weeks for stomach symptoms without speaking to your healthcare provider."
+                ]
+            },
+            {
+                "name": "Calcium Carbonate + Magnesium Carbonate",
+                "primary_use": "Used to relieve heartburn and indigestion by neutralizing stomach acid.",
+                "precautions": [
+                    "Avoid taking drugs whose absorption is affected by antacids within 1 hr. of administration.",
+                    "Do not use the maximum dosage for >2 weeks; if symptoms persist, discontinue and contact a health care provide."
+                ]
+            },
+            {
+                "name": "Aluminum Hydroxide + Magnesium Hydroxide + Sodium Alginate + Simethicone",
+                "primary_use": "Used to relieve symptoms of heartburn, indigestion, and gas, and to form a protective barrier against acid reflux.",
+                "precautions": []
+            },
+            {
+                "name": "Magnesium Hydroxide",
+                "primary_use": "Used to relieve indigestion, heartburn, and sour stomach by neutralizing stomach acid. It can also act as a laxative.",
+                "precautions": [
+                    "Magnesium salts may cause central nervous depression in the presence of renal insufficiency and should be used with caution in patients with advanced renal disease."
+                ]
+            },
+            {
+                "name": "Magnesium Trisilicate",
+                "primary_use": "Used to relieve heartburn and indigestion by neutralizing stomach acid.",
+                "precautions": [
+                    "Magnesium salts may cause central nervous depression in the presence of renal insufficiency and should be used with caution in patients with advanced renal disease."
+                ]
+            },
+            {
+                "name": "Sodium carbonate Anhydrous + Sodium Bicarbonate + Citric acid anhydrous",
+                "primary_use": "Used as an antacid to relieve indigestion and heartburn by neutralizing stomach acid, often forming effervescent solutions.",
+                "precautions": []
+            },
+            {
+                "name": "Alverin citrate + simethicone",
+                "primary_use": "Used to relieve symptoms of irritable bowel syndrome (IBS) such as abdominal pain and discomfort, by relaxing muscles and reducing gas.",
+                "precautions": [
+                    "Not recommended for children under 12."
+                ]
+            },
+            {
+                "name": "Hyoscine (Scopolamine) Butyl bromide",
+                "primary_use": "Used to relieve muscle spasms in the gastrointestinal tract, bladder, or uterus, which can cause abdominal pain.",
+                "precautions": [
+                    "This medicine should not be taken on daily basis or for extended period of time without investigating the cause of abdominal pain.",
+                    "It may cause drowsiness."
+                ]
+            },
+            {
+                "name": "Dimenhydrinate",
+                "primary_use": "Used to prevent and treat nausea, vomiting, and dizziness, especially motion sickness.",
+                "precautions": [
+                    "Should not be used in children under the age of two.",
+                    "It causes significant drowsiness.",
+                    "May impair ability to drive or operate heavy machinery.",
+                    "May mask early signs of ototoxicity if given concomitantly with ototoxic drugs (e.g., Aminoglycosides)."
+                ]
+            },
+            {
+                "name": "Hyoscine (Scopolamine) Hydrobromide",
+                "primary_use": "Used to prevent nausea and vomiting, especially motion sickness.",
+                "precautions": [
+                    "Should not be used in children aged less than 4 years.",
+                    "Do not take more than 3 doses in 24 hours.",
+                    "May cause depression; caution when operating heavy machinery or tasks which require mental alertness."
+                ]
+            },
+            {
+                "name": "Bisacodyl",
+                "primary_use": "Used to relieve constipation by stimulating bowel movements.",
+                "precautions": [
+                    "Not recommended in children under 4 years.",
+                    "Use of this drug continually over one week indicates the individual should seek medical advice.",
+                    "Not recommended in patients with acute inflammatory bowel diseases."
+                ]
+            },
+            {
+                "name": "Docusate sodium",
+                "primary_use": "Used to soften stools and make bowel movements easier, preventing constipation.",
+                "precautions": [
+                    "Prior to OTC use, patients should contact a healthcare professional if stomach pain, nausea, vomiting, or bleeding are present, or if a sudden change in bowel habits occurs and persists over 14 days."
+                ]
+            },
+            {
+                "name": "Glycerin",
+                "primary_use": "Used as a laxative, often in suppository form, to relieve occasional constipation by lubricating the stool and stimulating bowel muscles.",
+                "precautions": [
+                    "Do not use when abdominal pain, nausea, or vomiting present (unless directed by physician).",
+                    "Do not use for longer than 1 week.",
+                    "If constipation continues after one week of use, contact your physician."
+                ]
+            },
+            {
+                "name": "Magnesium sulphate",
+                "primary_use": "Used as a laxative to relieve constipation by drawing water into the intestines.",
+                "precautions": []
+            },
+            {
+                "name": "Polyethylene glycol 3350",
+                "primary_use": "Used to relieve occasional constipation by increasing the amount of water in the stool, making it softer and easier to pass.",
+                "precautions": [
+                    "Shouldn't be used for more than 7 consecutive days and in children below 6 months."
+                ]
+            },
+            {
+                "name": "Psyllium",
+                "primary_use": "Used as a bulk-forming laxative to treat constipation and promote regular bowel movements.",
+                "precautions": []
+            },
+            {
+                "name": "Sennosides (Senna and its preparations)",
+                "primary_use": "Used as a stimulant laxative to relieve occasional constipation by promoting bowel movements.",
+                "precautions": [
+                    "Not recommended: For children under 18 years.",
+                    "Not recommended: During pregnancy/ breastfeeding."
+                ]
+            },
+            {
+                "name": "Sorbitol",
+                "primary_use": "Used as a laxative to relieve constipation by drawing water into the colon.",
+                "precautions": []
+            },
+            {
+                "name": "Oral Rehydration Salt (ORS)",
+                "primary_use": "Used to prevent and treat dehydration caused by diarrhea by replacing lost fluids and electrolytes.",
+                "precautions": []
+            },
+            {
+                "name": "Zinc sulfate",
+                "primary_use": "Used as an adjunct therapy for diarrhea, particularly in children, to reduce severity and duration of episodes.",
+                "precautions": []
+            },
+            {
+                "name": "Activated charcoal",
+                "primary_use": "Used to relieve gas and bloating by absorbing excess gas in the digestive tract.",
+                "precautions": []
+            },
+            {
+                "name": "Simethicone",
+                "primary_use": "Used to relieve symptoms of gas, such as bloating and pressure, by breaking down gas bubbles in the digestive tract.",
+                "precautions": []
+            },
+            {
+                "name": "Bismuth Subgallate Compound (Bismuth Subgallate + Bismuth Oxide + Peru Balsam + Zinc Oxide)",
+                "primary_use": "Used to relieve symptoms of hemorrhoids, such as itching, discomfort, and inflammation.",
+                "precautions": [
+                    "Bismuth containing drugs may cause black stools."
+                ]
+            },
+            {
+                "name": "Lidocaine HCl + Tribenoside",
+                "primary_use": "Used to relieve pain, itching, and discomfort associated with hemorrhoids.",
+                "precautions": []
+            },
+            {
+                "name": "Chlorpheniramine maleate + Ammonium chloride + Sodium Citrate",
+                "primary_use": "Used to relieve cough and congestion associated with colds and allergies, by acting as an antihistamine, expectorant, and mucolytic.",
+                "precautions": []
+            },
+            {
+                "name": "Dexchlorpheniramine + Guaifenesin + Pseudoephedrine",
+                "primary_use": "Used to relieve cough, congestion, and other cold symptoms, by acting as an antihistamine, expectorant, and decongestant.",
+                "precautions": [
+                    "Pseudoephedrine containing drugs are not recommended in Children under 12 years.",
+                    "Pseudoephedrine containing drugs are not recommended in Pregnancy, breastfeeding.",
+                    "Pseudoephedrine containing drugs are not recommended in Severe hypertension or severe coronary artery disease.",
+                    "Pseudoephedrine containing drugs are not recommended in Severe renal impairment."
+                ]
+            },
+            {
+                "name": "Dextromethorphan HBr",
+                "primary_use": "Used to relieve dry cough by suppressing the cough reflex.",
+                "precautions": [
+                    "It should not be taken by individuals who are taking CNS depressive drugs, opiates, and other psychoactive drugs, or children under 4 years of age.",
+                    "Do not take dextromethorphan for persistent or chronic cough associated with smoking, asthma, or emphysema."
+                ]
+            },
+            {
+                "name": "Dextromethorphan Hydrobromide + Guaicol Sulphonate",
+                "primary_use": "Used to relieve cough and help clear mucus from the airways.",
+                "precautions": []
+            },
+            {
+                "name": "Diphenhydramine + Sodium citrate + Ammonium chloride",
+                "primary_use": "Used to relieve cough and cold symptoms by acting as an antihistamine and expectorant.",
+                "precautions": []
+            },
+            {
+                "name": "Dextromethorphan + Guaifenesin + Pseudoephedrine",
+                "primary_use": "Used to relieve cough, chest congestion, and nasal stuffiness associated with colds.",
+                "precautions": [
+                    "Do not take dextromethorphan for persistent or chronic cough associated with smoking, asthma, or emphysema."
+                ]
+            },
+            {
+                "name": "Guaifenesin",
+                "primary_use": "Used to relieve chest congestion by thinning and loosening mucus in the airways, making coughs more productive.",
+                "precautions": [
+                    "Not recommended for children below 2 years.",
+                    "Adequate hydration will augment the effect of guaifenesin."
+                ]
+            },
+            {
+                "name": "Ibuprofen + Pseudoephedrine HCl + Chlorpheniramine maleate",
+                "primary_use": "Used to relieve pain, fever, nasal congestion, and other cold/flu symptoms.",
+                "precautions": []
+            },
+            {
+                "name": "Paracetamol + Chlorpheniramine + Pseudoephedrine",
+                "primary_use": "Used to relieve pain, fever, nasal congestion, and allergy symptoms.",
+                "precautions": [
+                    "Chlorpheniramine may cause significant sedation; not for administration to < 2 years of age.",
+                    "Paracetamol is found in many other dosage forms and products, check label carefully to avoid overdose."
+                ]
+            },
+            {
+                "name": "Paracetamol + Pseudoephedrine + Diphenhydramine",
+                "primary_use": "Used to relieve pain, fever, nasal congestion, and provide nighttime cold and allergy relief due to its sedative effect.",
+                "precautions": [
+                    "Paracetamol is found in many other dosage forms and products, check label carefully to avoid overdose.",
+                    "Risk of hepatotoxicity is higher in alcoholics or with use of more than one acetaminophen-containing product."
+                ]
+            },
+            {
+                "name": "Salbutamol (Albuterol)",
+                "primary_use": "Used as a bronchodilator to relieve symptoms of asthma and other respiratory conditions by relaxing muscles in the airways.",
+                "precautions": []
+            },
+            {
+                "name": "Acetylsalicylic acid",
+                "primary_use": "Used to relieve mild to moderate pain and reduce fever.",
+                "precautions": [
+                    "May cause Reye's syndrome in infants and children, which can lead to fatal brain swelling. Therefore, children younger than 14 years of age should not take Aspirin.",
+                    "Aspirin can cause irritation of the stomach and may lead to ulcers and bleeding. Individuals with a history of ulcers or other stomach problems should not take aspirin, and those who take blood thinners should use caution when taking aspirin at the same time."
+                ]
+            },
+            {
+                "name": "Diclofenac diethylamine",
+                "primary_use": "Used topically to relieve pain and inflammation in muscles and joints.",
+                "precautions": []
+            },
+            {
+                "name": "Diclofenac diethylamine +",
+                "primary_use": "Used topically to relieve pain and inflammation in muscles and joints.",
+                "precautions": []
+            },
+            {
+                "name": "Ibuprofen",
+                "primary_use": "Used to relieve pain, reduce inflammation, and lower fever.",
+                "precautions": [
+                    "Patients at greatest risk include the elderly, those with impaired renal function, hypovolemia, heart failure, liver dysfunction, or salt depletion, and those taking diuretics, angiotensin-converting enzyme (ACE) inhibitors, or angiotensin receptor blockers."
+                ]
+            },
+            {
+                "name": "Paracetamol",
+                "primary_use": "Used to relieve pain and reduce fever.",
+                "precautions": [
+                    "Adequately labeling mentioning hepatitis warning.",
+                    "Maximum dose 1g, maximum daily dose 4g for adults."
+                ]
+            },
+            {
+                "name": "Paracetamol + Caffeine",
+                "primary_use": "Used to relieve pain and reduce fever, with caffeine potentially enhancing the pain-relieving effect.",
+                "precautions": []
+            },
+            {
+                "name": "Paracetamol + Caffeine + Chlorpheniramine",
+                "primary_use": "Used to relieve pain, fever, and allergy symptoms like runny nose and sneezing.",
+                "precautions": []
+            },
+            {
+                "name": "Acetylsalicylic acid",
+                "primary_use": "Used to relieve headache pain, including mild to moderate migraine attacks.",
+                "precautions": []
+            },
+            {
+                "name": "Acetylsalicylic acid + Paracetamol + Caffeine",
+                "primary_use": "Used to relieve pain, including migraine headaches, by combining pain relievers with caffeine.",
+                "precautions": []
+            },
+            {
+                "name": "Ibuprofen",
+                "primary_use": "Used to relieve pain, including headaches and mild to moderate migraine attacks.",
+                "precautions": []
+            },
+            {
+                "name": "Paracetamol + Caffeine",
+                "primary_use": "Used to relieve pain, including headaches, with caffeine potentially enhancing the pain-relieving effect.",
+                "precautions": []
+            },
+            {
+                "name": "Acetylsalicylic acid",
+                "primary_use": "Used to relieve pain and inflammation associated with musculoskeletal disorders.",
+                "precautions": []
+            },
+            {
+                "name": "Acetylsalicylic acid + Paracetamol + Caffeine",
+                "primary_use": "Used to relieve pain associated with musculoskeletal disorders.",
+                "precautions": []
+            },
+            {
+                "name": "Diclofenac diethylamine + Methyl salicylate + Menthol",
+                "primary_use": "Used topically to relieve pain and inflammation in muscles and joints.",
+                "precautions": []
+            },
+            {
+                "name": "Ibuprofen",
+                "primary_use": "Used to relieve pain and inflammation associated with musculoskeletal disorders.",
+                "precautions": []
+            },
+            {
+                "name": "Indomethacin",
+                "primary_use": "Used as a suppository to relieve pain and inflammation in musculoskeletal conditions.",
+                "precautions": []
+            },
+            {
+                "name": "Methyl salicylate",
+                "primary_use": "Used topically to relieve pain in muscles and joints.",
+                "precautions": []
+            },
+            {
+                "name": "Albendazole",
+                "primary_use": "Used to treat various parasitic worm infections.",
+                "precautions": []
+            },
+            {
+                "name": "Levamisole",
+                "primary_use": "Used to treat parasitic worm infections.",
+                "precautions": []
+            },
+            {
+                "name": "Mebendazole",
+                "primary_use": "Used to treat various parasitic worm infections, such as pinworms, roundworms, and hookworms.",
+                "precautions": []
+            },
+            {
+                "name": "Piperazine",
+                "primary_use": "Used to treat certain parasitic worm infections, particularly roundworms and pinworms.",
+                "precautions": []
+            },
+            {
+                "name": "Pyrantel pamoate",
+                "primary_use": "Used to treat intestinal worm infections like pinworms and roundworms.",
+                "precautions": [
+                    "Maximum daily dose should not exceed a total of 1 gram."
+                ]
+            },
+            {
+                "name": "Ascorbic acid (Vitamin C)",
+                "primary_use": "Used as a dietary supplement to prevent or treat vitamin C deficiency and support immune function.",
+                "precautions": []
+            },
+            {
+                "name": "Calcium + Vitamin D",
+                "primary_use": "Used as a dietary supplement to support bone health and calcium absorption.",
+                "precautions": []
+            },
+            {
+                "name": "Folic acid + Vitamin B6",
+                "primary_use": "Used as a dietary supplement, particularly important for cell growth and nerve function.",
+                "precautions": []
+            },
+            {
+                "name": "Folic acid",
+                "primary_use": "Used as a dietary supplement, essential for cell division and the formation of red blood cells.",
+                "precautions": []
+            },
+            {
+                "name": "Multivitamin Preparations",
+                "primary_use": "Used as a dietary supplement to provide a range of essential vitamins the body needs.",
+                "precautions": []
+            },
+            {
+                "name": "Multivitamin with minerals and/or extracts",
+                "primary_use": "Used as a dietary supplement to provide essential vitamins, minerals, and other beneficial compounds.",
+                "precautions": []
+            },
+            {
+                "name": "Vitamin B Complex Preparations (B1+B6+B12)",
+                "primary_use": "Used as a dietary supplement to support metabolism, nerve function, and red blood cell formation.",
+                "precautions": []
+            },
+            {
+                "name": "Vitamin B6 (pyridoxine)",
+                "primary_use": "Used as a dietary supplement for nerve function, metabolism, and red blood cell production.",
+                "precautions": []
+            },
+            {
+                "name": "Amylmetacresol + 2, 4-Dichlorobenzyl alcohol",
+                "primary_use": "Used to relieve sore throat pain and discomfort by providing antiseptic action.",
+                "precautions": []
+            },
+            {
+                "name": "Amylmetacresol + 2,4-Dichlorobenzyl alcohol + Vitamin C",
+                "primary_use": "Used to relieve sore throat pain and discomfort, with added vitamin C for general well-being.",
+                "precautions": []
+            },
+            {
+                "name": "Chlorhexidine gluconate",
+                "primary_use": "Used as an antiseptic mouthwash to reduce bacteria in the mouth and throat, aiding in oral hygiene and sore throat relief.",
+                "precautions": []
+            },
+            {
+                "name": "Dequalinium chloride",
+                "primary_use": "Used as an antiseptic to treat minor infections and relieve sore throat symptoms.",
+                "precautions": []
+            },
+            {
+                "name": "Dequalinium chloride + Lidocaine hydrochloride",
+                "primary_use": "Used to relieve sore throat pain and discomfort by combining an antiseptic with a local anesthetic.",
+                "precautions": []
+            },
+            {
+                "name": "Hexetidine",
+                "primary_use": "Used as an antiseptic mouthwash to treat minor infections of the mouth and throat.",
+                "precautions": []
+            },
+            {
+                "name": "Hydrogen peroxide",
+                "primary_use": "Used as an antiseptic for minor cuts, wounds, and for oral hygiene to help clean the mouth and relieve minor irritation.",
+                "precautions": []
+            },
+            {
+                "name": "Menthol + Eucalyptus oil",
+                "primary_use": "Used for inhalation to relieve nasal congestion and ease breathing, providing a cooling sensation.",
+                "precautions": []
+            },
+            {
+                "name": "Povidone-iodine",
+                "primary_use": "Used as an antiseptic solution for minor cuts, wounds, and for mouth and throat disinfection.",
+                "precautions": []
+            },
+            {
+                "name": "Saline solution",
+                "primary_use": "Used as a nasal spray or drop to relieve nasal dryness and congestion by moisturizing nasal passages and thinning mucus.",
+                "precautions": []
+            },
+            {
+                "name": "Triclosan + sodium fluoride",
+                "primary_use": "Used as a solution for oral hygiene, providing antibacterial action and strengthening tooth enamel.",
+                "precautions": []
+            },
+            {
+                "name": "Xylometazoline",
+                "primary_use": "Used as a nasal decongestant to relieve stuffy nose by shrinking swollen blood vessels in the nasal passages.",
+                "precautions": [
+                    "Treatment duration should not exceed 3 days; frequent or prolonged use may cause nasal congestion to recur or worsen.",
+                    "Used for adults and children over 12 years of age."
+                ]
+            },
+            {
+                "name": "Chlorpheniramine maleate",
+                "primary_use": "Used to relieve symptoms of allergies such as runny nose, sneezing, itching, and watery eyes.",
+                "precautions": [
+                    "Use in children less than 2 years is not recommended/prohibited.",
+                    "Use in children less than 6 years without medical supervision is not recommended.",
+                    "May cause drowsiness; caution when driving a motor vehicle or operating machinery."
+                ]
+            },
+            {
+                "name": "Dexchlorpheniramine maleate",
+                "primary_use": "Used to relieve symptoms of allergies such as runny nose, sneezing, itching, and watery eyes.",
+                "precautions": [
+                    "It may cause drowsiness. Use caution when driving or using machine."
+                ]
+            },
+            {
+                "name": "Loratadine",
+                "primary_use": "Used to relieve symptoms of allergies such as sneezing, runny nose, and itchy, watery eyes, without causing significant drowsiness.",
+                "precautions": []
+            },
+            {
+                "name": "Loratadine + Pseudoephedrine",
+                "primary_use": "Used to relieve symptoms of allergies and nasal congestion.",
+                "precautions": [
+                    "See health-care provider if symptoms do not improve within 7 days or are accompanied by fever."
+                ]
+            },
+            {
+                "name": "Pheniramine aminosalicylate",
+                "primary_use": "Used to relieve symptoms of allergies.",
+                "precautions": [
+                    "Antihistamines may cause drowsiness. Use caution when driving or using machine."
+                ]
+            },
+            {
+                "name": "Benzoic acid + Salicylic acid",
+                "primary_use": "Used topically to treat fungal infections of the skin, such as athlete's foot and ringworm.",
+                "precautions": []
+            },
+            {
+                "name": "Benzyl benzoate (BBL)",
+                "primary_use": "Used topically to treat scabies and lice infestations.",
+                "precautions": []
+            },
+            {
+                "name": "Beta-sitosterol",
+                "primary_use": "Used topically for moist exposed burn treatment, promoting healing and providing a protective barrier.",
+                "precautions": [
+                    "Recommended for moist exposed burn."
+                ]
+            },
+            {
+                "name": "Gentian violet (GV)",
+                "primary_use": "Used as a topical antiseptic for minor cuts, scrapes, and skin infections.",
+                "precautions": []
+            },
+            {
+                "name": "Ivermectin",
+                "primary_use": "Used topically to treat parasitic skin conditions like rosacea, scabies, and lice.",
+                "precautions": []
+            },
+            {
+                "name": "Ketoconazole",
+                "primary_use": "Used topically to treat fungal infections of the skin and scalp, such as dandruff and seborrheic dermatitis.",
+                "precautions": []
+            },
+            {
+                "name": "Nitrofurazone",
+                "primary_use": "Used topically to prevent or treat bacterial skin infections in minor burns, wounds, and skin grafts.",
+                "precautions": []
+            },
+            {
+                "name": "Selenium sulfide",
+                "primary_use": "Used topically to treat dandruff, seborrheic dermatitis, and tinea versicolor by slowing the growth of yeast on the skin.",
+                "precautions": []
+            },
+            {
+                "name": "Sulphur",
+                "primary_use": "Used topically to treat skin conditions like acne, scabies, and certain fungal infections due to its antiseptic and exfoliating properties.",
+                "precautions": []
+            },
+            {
+                "name": "Zinc undecenoate + Undecanoic acid",
+                "primary_use": "Used topically to treat fungal skin infections, such as athlete's foot and ringworm.",
+                "precautions": []
+            },
+            {
+                "name": "Benzoyl peroxide",
+                "primary_use": "Used topically to treat acne by killing bacteria and helping to shed dead skin cells.",
+                "precautions": []
+            },
+            {
+                "name": "Camphor",
+                "primary_use": "Used topically to relieve pain, itching, and irritation, often found in topical analgesics for muscle aches or cold sores.",
+                "precautions": []
+            },
+            {
+                "name": "Coal tar",
+                "primary_use": "Used topically to treat skin conditions like psoriasis, eczema, and dandruff by reducing inflammation and scaling.",
+                "precautions": []
+            },
+            {
+                "name": "Coal Tar + Salicylic acid + Sulphur",
+                "primary_use": "Used topically to treat skin conditions like psoriasis, eczema, and dandruff by reducing inflammation, scaling, and promoting exfoliation.",
+                "precautions": []
+            },
+            {
+                "name": "Salicylic acid",
+                "primary_use": "Used topically to treat acne, warts, and other skin conditions by promoting exfoliation and unclogging pores.",
+                "precautions": []
+            },
+            {
+                "name": "Salicylic acid + Lactic acid + Polidocanol",
+                "primary_use": "Used topically to treat warts and calluses by softening and shedding the hardened skin, and to relieve associated discomfort.",
+                "precautions": []
+            },
+            {
+                "name": "Ichthammol",
+                "primary_use": "Used topically to treat skin conditions like eczema and boils, by reducing inflammation and drawing out impurities.",
+                "precautions": []
+            },
+            {
+                "name": "Sun screen",
+                "primary_use": "Used topically to protect the skin from harmful UV radiation from the sun, preventing sunburn and reducing the risk of skin cancer.",
+                "precautions": []
+            },
+            {
+                "name": "Zinc oxide",
+                "primary_use": "Used topically to protect and soothe irritated skin, often found in products for diaper rash, minor burns, and general skin irritation.",
+                "precautions": []
+            },
+            {
+                "name": "Calamine",
+                "primary_use": "Used topically to relieve itching and irritation from skin conditions like insect bites, poison ivy, or chickenpox.",
+                "precautions": []
+            },
+            {
+                "name": "Calamine + Zinc oxide",
+                "primary_use": "Used topically to relieve itching and soothe irritated skin from conditions like insect bites, poison ivy, or minor rashes.",
+                "precautions": []
+            },
+            {
+                "name": "Chlorhexidine gluconate + Cetrimide",
+                "primary_use": "Used as an antiseptic to clean wounds, prepare skin for procedures, and disinfect surfaces.",
+                "precautions": []
+            },
+            {
+                "name": "Ethyl alcohol",
+                "primary_use": "Used as a skin antiseptic to disinfect the skin before injections or minor procedures.",
+                "precautions": []
+            },
+            {
+                "name": "Ethyl alcohol + Glycerol + Hydrogen Peroxide",
+                "primary_use": "Used as a hand sanitizer or skin antiseptic for effective disinfection.",
+                "precautions": []
+            },
+            {
+                "name": "Iodine Tincture",
+                "primary_use": "Used as a topical antiseptic for minor cuts, scrapes, and skin infections.",
+                "precautions": []
+            },
+            {
+                "name": "Isopropyl alcohol + Glycerol + Hydrogen peroxide",
+                "primary_use": "Used as a hand sanitizer or skin antiseptic for effective disinfection.",
+                "precautions": []
+            },
+            {
+                "name": "Hydrogen Peroxide",
+                "primary_use": "Used as an antiseptic for minor cuts, wounds, and for oral hygiene to help clean the mouth.",
+                "precautions": []
+            },
+            {
+                "name": "Povidone-iodine",
+                "primary_use": "Used as an antiseptic to disinfect skin and wounds, and for pre-operative skin preparation.",
+                "precautions": []
+            },
+            {
+                "name": "Crotamiton",
+                "primary_use": "Used to relieve itching (pruritus) and treat scabies infestations.",
+                "precautions": [
+                    "Effective for the relief of itching and skin irritation.",
+                    "For children under three years of age, usage should only be used under medical supervision and it should not be applied more than once a day."
+                ]
+            },
+            {
+                "name": "Dexpanthenol",
+                "primary_use": "Used as a moisturizer to treat or prevent dry, rough, scaly, itchy skin and minor skin irritations (e.g., diaper rash, skin burns from radiation therapy).",
+                "precautions": [
+                    "It is used as a moisturizer to treat or prevent dry, rough, scaly, itchy skin and minor skin irritations (e.g., diaper rash, skin burns from radiation therapy).",
+                    "If you are using this product to help treat diaper rash, clean the diaper area well before use and allow the area to dry before applying the product."
+                ]
+            },
+            {
+                "name": "Methyl salicylate",
+                "primary_use": "Used topically to relieve muscle and joint pain.",
+                "precautions": []
+            },
+            {
+                "name": "Minoxidil",
+                "primary_use": "Used topically to treat male and female pattern baldness by promoting hair growth.",
+                "precautions": [
+                    "Rist of contact dermatitis/eczema with topiacl sypmtoms of itching and scaling."
+                ]
+            },
+            {
+                "name": "Permethrin",
+                "primary_use": "Used topically to treat lice and scabies infestations by killing the parasites.",
+                "precautions": [
+                    "Leave on hair for 10 minutes (but no longer), use for a single application but may repeat 7 days after first treatment if lice still present."
+                ]
+            },
+            {
+                "name": "Talc dusting powder",
+                "primary_use": "Used topically to absorb moisture and reduce friction, helping to prevent rashes and skin irritation.",
+                "precautions": []
+            },
+            {
+                "name": "Drospirenone + Ethinyl estradiol",
+                "primary_use": "Used as an oral contraceptive to prevent pregnancy.",
+                "precautions": []
+            },
+            {
+                "name": "Levonorgestrel",
+                "primary_use": "Used as an oral contraceptive (mini-pill) to prevent pregnancy, especially for women who cannot take estrogen.",
+                "precautions": []
+            },
+            {
+                "name": "Levonorgestrel (D-Norgestrel) + Ethinyl estradiol with/without Iron",
+                "primary_use": "Used as an oral contraceptive to prevent pregnancy, with iron tablets potentially included to prevent anemia.",
+                "precautions": []
+            },
+            {
+                "name": "Norethindrone (Norethisterone) + Ehinylestradiol",
+                "primary_use": "Used as an oral contraceptive to prevent pregnancy.",
+                "precautions": []
+            },
+            {
+                "name": "Norethindrone (Norethisterone) + Mestranol and Iron",
+                "primary_use": "Used as an oral contraceptive to prevent pregnancy, with iron tablets potentially included to prevent anemia.",
+                "precautions": []
+            },
+            {
+                "name": "Aluminium chloride",
+                "primary_use": "Used topically as an antiperspirant to reduce excessive sweating.",
+                "precautions": [
+                    "Shouldn't be applied to broken or infected skin.",
+                    "External use only."
+                ]
+            },
+            {
+                "name": "Artificial Tear",
+                "primary_use": "Used to lubricate and moisten dry eyes, providing relief from irritation and discomfort.",
+                "precautions": []
+            }
+        ];
+
+        const drugListingsDiv = document.getElementById('drugListings');
+        const searchInput = document.getElementById('searchInput');
+        const loader = document.getElementById('loader');
+        const drugModal = document.getElementById('drugModal');
+        const modalDrugName = document.getElementById('modalDrugName');
+        const modalPrimaryUse = document.getElementById('modalPrimaryUse');
+        const modalPrecautionsList = document.getElementById('modalPrecautionsList');
+        const modalPrecautionsSection = document.getElementById('modalPrecautionsSection');
+        const noPrecautionsMessage = document.getElementById('noPrecautionsMessage');
+
+        let currentDrugData = []; // To hold data filtered by categories if categories were implemented
+
+        // Function to display drug cards
+        function displayDrugs(filterText = '') {
+            drugListingsDiv.innerHTML = ''; // Clear previous listings
+            loader.style.display = 'block'; // Show loader
+
+            // Simulate a small delay for loading (remove in production if data is local)
+            setTimeout(() => {
+                loader.style.display = 'none'; // Hide loader
+
+                const filteredDrugs = allDrugData.filter(drug =>
+                    drug.name.toLowerCase().includes(filterText.toLowerCase())
+                );
+
+                if (filteredDrugs.length === 0) {
+                    drugListingsDiv.innerHTML = '<p class="text-center text-gray-600 col-span-full">No medicines found matching your search.</p>';
+                    return;
+                }
+
+                filteredDrugs.forEach(drug => {
+                    const drugCard = document.createElement('div');
+                    drugCard.className = 'drug-card bg-white p-6 rounded-lg shadow-md border border-gray-200 cursor-pointer';
+                    drugCard.innerHTML = `
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">${drug.name}</h3>
+                        <p class="text-gray-600 text-sm">${drug.primary_use}</p>
+                    `;
+                    drugCard.onclick = () => openModal(drug);
+                    drugListingsDiv.appendChild(drugCard);
+                });
+            }, 300); // 300ms delay
+        }
+
+        // Function to filter drugs based on search input
+        function filterDrugs() {
+            const filterText = searchInput.value;
+            displayDrugs(filterText);
+        }
+
+        // Function to open the modal
+        function openModal(drug) {
+            modalDrugName.textContent = drug.name;
+            modalPrimaryUse.textContent = drug.primary_use;
+
+            modalPrecautionsList.innerHTML = ''; // Clear previous precautions
+
+            if (drug.precautions && drug.precautions.length > 0) {
+                noPrecautionsMessage.style.display = 'none';
+                modalPrecautionsSection.style.display = 'block';
+                drug.precautions.forEach(precaution => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = precaution;
+                    modalPrecautionsList.appendChild(listItem);
+                });
+            } else {
+                modalPrecautionsSection.style.display = 'block'; // Ensure section is visible
+                noPrecautionsMessage.style.display = 'block';
+            }
+
+            drugModal.style.display = 'flex'; // Use flex to center the modal
+        }
+
+        // Function to close the modal
+        function closeModal() {
+            drugModal.style.display = 'none';
+        }
+
+        // Close modal if user clicks outside of it
+        window.onclick = function(event) {
+            if (event.target == drugModal) {
+                closeModal();
+            }
+        }
+
+        // Initial load of drugs when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            displayDrugs();
+        });
+    </script>
+</body>
+</html>
